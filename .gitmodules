@@ -1,0 +1,3 @@
+[submodule "ChromaProcessing"]
+	path = ChromaProcessing
+	url = https://neilpanchal@github.com/neilpanchal/ChromaProcessing.git
