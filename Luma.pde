@@ -5,7 +5,7 @@ Website: http://neil.engineer/
 
 Copyright 2015 Neil Panchal. All Rights Reserved.
 
-Description: Chroma is a color conversion class for Processing.
+Description: Luma is a palette generator for processing and it uses the Chroma library.
 
 Purpose: Primary objective of Chroma is to help the end user seamlessly & effortlessly create colors that are perceptually uniform.
 

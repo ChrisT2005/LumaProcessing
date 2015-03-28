@@ -9,10 +9,10 @@ int totalTime;
 int lumaNumber = 10;
 int lumaQuality = 100;
 
-int lumaMinL = 0;
-int lumaMaxL = 100;
+int lumaMinL = 40;
+int lumaMaxL = 60;
 
-int lumaMinC = 0;
+int lumaMinC = 40;
 int lumaMaxC = 128;
 
 int lumaMinH = 0;
@@ -48,7 +48,7 @@ void setup() {
 }
 
 void draw() {
-    background(0);
+    background(255);
     plotLuma();
     plotLumaCentroids();
 
@@ -58,7 +58,7 @@ void plotLuma() {
     for (int i=0 ; i< lumaDomain.length; i++) {
         // fill(lumaDomain[i].getColor());
         stroke(lumaDomain[i].getColor());
-        strokeWeight(2);
+        strokeWeight(5);
         point(map(lumaDomain[i].getHue(), 0, 360, 0, width), map(lumaDomain[i].getChr(), 0, 132, 0, height));
     }
 }
@@ -66,7 +66,8 @@ void plotLuma() {
 void plotLumaCentroids() {
     for(int j = 0; j < lumaClusters.length; j++) {
         fill(lumaClusters[j].getColor());
-        noStroke();
-        ellipse(map(lumaClusters[j].getHue(), 0, 360, 0, width), map(lumaClusters[j].getChr(), 0, 132, 0, height), 12, 12);
+        stroke(0);
+        strokeWeight(2);
+        rect(map(lumaClusters[j].getHue(), 0, 360, 0, width), map(lumaClusters[j].getChr(), 0, 132, 0, height), 20, 20);
     }
 }
