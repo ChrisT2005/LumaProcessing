@@ -1,39 +1,34 @@
-/////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////
 /*
-Author: Neil Panchal
-Website: http://neil.engineer/
-
+Author: Neil Panchal : http://neil.engineer/
 Copyright 2015 Neil Panchal. All Rights Reserved.
 
-Description: Luma is a palette generator for processing and it uses the Chroma library.
+Version: 1.0.0
 
-Purpose: Primary objective of Chroma is to help the end user seamlessly & effortlessly create colors that are perceptually uniform.
+Description: Luma is a palette generator library for Processing inspired by 'iwanthue' developed by Mathieu Jacomy. It utilizes perceptually linear colorspaces CIE-Lab & CIE-LCH to provide a coherent, equidistant and percetually pleasing color palette.
 
-Usage: Please see the README.md file
+Dependencies: Chroma library for Processing @ http://neil.engineer/ Link
 
-References:  Color conversion methods are borrowed from various places as detailed below.
+Usage: Please refer to README.md
 
-*   Gregory Aisch: https://github.com/gka/chroma.js
-*   http://developer.classpath.org/doc/java/awt/Color-source.html
-*   http://stackoverflow.com/a/7898685
-*   http://www.cs.rit.edu/~ncs/color/t_convert.html
+License: Please refer to LICENSE.md
 
 */
 /////////////////////////////////////////////////////////////////////////////////////////
 
 import java.util.ArrayList;
-
+// import com.chroma.*;
 
 public class Luma {
 
-
-    // Number of cluster centroids
+    // FIELDS---- ///////////////////////////////////////////////////////////////////////
     private int lumaClusterCount;
     private int maxIter;
     private int quality;
     private float convergenceQuality;
     private boolean converged;
 
+    // Range variables
     private float minL;
     private float maxL;
     private float minC;
@@ -41,11 +36,13 @@ public class Luma {
     private float minH;
     private float maxH;
 
-    private Chroma[] lumaColors;
+    // Array variables
+    private Chroma[] lumaColors; // Needs Chroma library
     private ArrayList<LumaData> lumaDomain;
     private ArrayList<LumaCentroid> lumaClusters;
 
 
+    // CONSTRUCTORS ---- ////////////////////////////////////////////////////////////////
     public Luma(int lumaClusterCount_, int quality_,  float minL_, float maxL_,
                                         float minC_, float maxC_,
                                         float minH_, float maxH_) {
@@ -61,8 +58,15 @@ public class Luma {
         minH = minH_;
         maxH = maxH_;
 
+        // Create random data points in the restricted domain. This method does not allow for constant domain size. The total number of data points is proportional to the input ranges of luma, chroma and hue. As a consequence, the processing time is not constant & difficult to predict. Therefore, it has been deprecated and replaced by the 'createConstantDomain' method.
+
+        /*
         lumaDomain = new ArrayList<LumaData>();
-        lumaDomain = createConstantDomain(2500, minL_, maxL_, minC_, maxC_, minH_, maxH_);
+        lumaDomain = createDomain((int)map(quality, 0, 100, 1000, 7500), minL_, maxL_, minC_, maxC_, minH_, maxH_);
+        */
+
+        lumaDomain = new ArrayList<LumaData>();
+        lumaDomain = createConstantDomain((int)map(quality, 0, 100, 1000, 7500), minL_, maxL_, minC_, maxC_, minH_, maxH_);
 
         lumaClusters = new ArrayList<LumaCentroid>();
         lumaClusters = createClusters(lumaClusterCount_);
@@ -71,40 +75,37 @@ public class Luma {
     }
 
 
-    // CLUSTER CENTROIDS
+    // CENTROID CLASS ---- //////////////////////////////////////////////////////////////
+    // LumaCentroid class instantiates datapoints containing Chroma objects.
     private class LumaCentroid {
 
         private Chroma lumaChroma;
 
         public LumaCentroid (float l_, float c_, float h_) {
-
             this.lumaChroma = new Chroma(l_, c_, h_, ColorSpace.LCH);
         }
 
         public LumaCentroid (LumaCentroid toClone) {
-
             float l_ = toClone.getChroma().getLum();
             float c_ = toClone.getChroma().getChr();
             float h_ = toClone.getChroma().getHue();
-
             this.lumaChroma = new Chroma(l_, c_, h_, ColorSpace.LCH);
         }
 
+        // Getter & Setter methods
         public Chroma getChroma() {
-
             return this.lumaChroma;
         }
 
         public void setChroma(float l_, float c_, float h_) {
-
             this.lumaChroma.setLCH(l_, c_, h_);
         }
 
         public boolean getClippedStatus() {
-
             return this.lumaChroma.clipped();
         }
 
+        // Print methods
         public String toString() {
 
             StringBuilder result = new StringBuilder();
@@ -117,19 +118,18 @@ public class Luma {
     }
 
 
-    // DATA SET
+    // DATASET CLASS ---- ///////////////////////////////////////////////////////////////
+    // This class holds all points in the Domain and the ID of the closest cluster centroid. The ID field is synced with the j-index of the lumaClusters ArrayList.
     private class LumaData extends LumaCentroid {
 
         private int clusterID;
 
         public LumaData(float l_, float c_, float h_, int clusterID_) {
-
             super(l_, c_, h_);
             this.clusterID = clusterID_;
         }
 
         public LumaData(float l_, float c_, float h_) {
-
             this(l_, c_, h_, -1);
         }
 
@@ -143,7 +143,7 @@ public class Luma {
 
     }
 
-
+    // EXPORT METHODS ---- //////////////////////////////////////////////////////////////
     public Chroma[] getDomain() {
 
         int domainSize = this.lumaDomain.size();
@@ -168,6 +168,7 @@ public class Luma {
     }
 
 
+    // CLUSTERING METHODS ---- //////////////////////////////////////////////////////////
     public void kMeansClustering() {
 
         int index = 0;
@@ -176,17 +177,15 @@ public class Luma {
         boolean converged = false;
 
         while(!converged) {
+            // This boolean array will hold the convergence status of all centroids.
+            boolean[] convergenceTest = new boolean[lumaClusters.size()];
 
-            ArrayList<LumaCentroid> prevClusters = lumaClusters;
-
-            // First assign each data point to its nearest cluster
+            // Assign each data point to its nearest cluster centroid. The centroid ID assigned to each data point is the current j-index of the lumaClusters ArrayList.
             for (int i = 0; i < lumaDomain.size(); i++) {
-
                 float minDistance = LARGE_NUMBER;
 
                 for(int j = 0; j < lumaClusters.size(); j++) {
                     float distance = computeDistance(lumaDomain.get(i), lumaClusters.get(j));
-
                     if (distance < minDistance) {
                         lumaDomain.get(i).setClusterID(j);
                         minDistance = distance;
@@ -195,32 +194,30 @@ public class Luma {
                 }
             }
 
-            boolean[] convergenceTest = new boolean[lumaClusters.size()];
-            ArrayList<LumaData> freeDomain = new ArrayList<LumaData>(lumaDomain);
             // Now compute the centroid means and check if its within the Domain
             for (int j = 0; j < lumaClusters.size(); j++) {
 
                 int count = 0;
+
+                // kMean array will acculumate all Euclidean distances.
                 float[] kMean = new float[]{0.0,0.0,0.0};
+
                 LumaCentroid currentCluster = lumaClusters.get(j);
 
                 for (int i = 0; i < lumaDomain.size(); i++) {
                     // Collect all data points that have the current cluster ID
                     if (lumaDomain.get(i).getClusterID() == j) {
-
-                        count++;
                         kMean[0] += lumaDomain.get(i).getChroma().getLum();
                         kMean[1] += lumaDomain.get(i).getChroma().getChr();
                         kMean[2] += lumaDomain.get(i).getChroma().getHue();
-
+                        count++;
                     }
                 }
 
                 if (count!=0) {
                     // The current centroid has at least one assigned data point
 
-                    // Compute the means
-                    kMean[0] /= count;
+                    kMean[0] /= count; // Compute the means
                     kMean[1] /= count;
                     kMean[2] /= count;
 
@@ -232,38 +229,27 @@ public class Luma {
                     if (validChroma(tempCentroid.getChroma())) {
 
                         convergenceTest[j] = checkConvergence(tempCentroid, lumaClusters.get(j));
-                        println("[Centroid " + (j+1) + "]\t" + tempCentroid + "\tConverged: " +convergenceTest[j]);
+
                         lumaClusters.set(j,tempCentroid);
+
+                        /*  ---- PRINT CODE-------------------------------------------
+                        println("[Centroid " + (j+1) + "]\t" + tempCentroid + "\tConverged: " +convergenceTest[j]);
+                        */
 
                     } else {
 
                         LumaCentroid randomCentroid = new LumaCentroid(random(this.minL,this.maxL), random(this.minC,this.maxC), random(this.minH, this.maxH));
-                        // If the new location is out of bounds, then find the closest data point\
-
-                        // float minDistance = LARGE_NUMBER;
-                        // int closest = 0;
-
-                        // for (int i = 0; i < lumaDomain.size(); i++) {
-
-                        //     float distance = computeDistance(lumaDomain.get(i), tempCentroid);
-                        //     if (distance < minDistance) {
-                        //         minDistance = distance;
-                        //         closest = i;
-                        //     }
-                        // }
-
-                        // LumaCentroid closestCentroid = new LumaCentroid(lumaDomain.get(closest));
-
-
 
                         // Force to compute the kMeans again and see if the centroid converges.
                         convergenceTest[j] = false;
 
+                        lumaClusters.set(j,randomCentroid);
+
+                        /*  ---- PRINT CODE-------------------------------------------
                         println("[Centroid* " + (j+1) + "]\t" + tempCentroid + "\tConverged: " +convergenceTest[j]);
                         println("Out of bounds. Move the centroid to a random location: ");
                         println("[Centroid+ " + (j+1) + "]\t" + randomCentroid + "\tConverged: " + convergenceTest[j]);
-
-                        lumaClusters.set(j,randomCentroid);
+                        */
                     }
 
                 } else {
@@ -286,42 +272,90 @@ public class Luma {
 
                     LumaCentroid closestCentroid = new LumaCentroid(lumaDomain.get(closest));
 
-                    println("Assigned closest data point: " + closest);
-
                     // Force to compute the kMeans again and see if the centroid converges.
                     convergenceTest[j] = false;
 
-                    println("[Centroid " + (j+1) + "]\t" + closestCentroid + "\tConverged: " +convergenceTest[j]);
 
+                    /*  ---- PRINT CODE-----------------------------------------------
+                    println("Assigned closest data point: " + closest);
+                    println("[Centroid " + (j+1) + "]\t" + closestCentroid + "\tConverged: " +convergenceTest[j]);
+                    */
+
+                    // Replace the current cluster with the newly found closestCentroid location.
                     lumaClusters.set(j,closestCentroid);
                 }
 
             }
+            /*  ---- PRINT CODE-------------------------------------------------------
             println("---------------------------------------------------------------------------------------------------------------");
+            */
 
             convergenceIndex++;
+            converged = checkTruth(convergenceTest);
+
             if(convergenceIndex >= this.maxIter) {
-                // println("Reached maximum iterations");
                 break;
             }
-            converged = checkTrue(convergenceTest);
         }
 
 
+        /*  ---- PRINT CODE-----------------------------------------------------------
         println();
         if (convergenceIndex == maxIter) {
             println("Maximum Iterations reached: " + convergenceIndex);
         } else {
             println("Iterations to converge Centroids: " + convergenceIndex);
         }
-        println("Iterations to find the closest Centroid: " + index);
-
-
-        println();
+        println("Iterations to find the closest Centroid: " + index +"\n");
+        */
 
     }
 
+    // INITIALIZATION METHODS ///////////////////////////////////////////////////////////
+    private ArrayList<LumaData> createConstantDomain(int size_, float minL_, float maxL_, float minC_, float maxC_, float minH_, float maxH_) {
 
+        ArrayList<LumaData> lumaDomain_ = new ArrayList<LumaData>();
+
+        for (int i = 0; i < size_; i++) {
+
+            boolean foundValidChroma = false;
+
+            // Try until the centroid is not clipped
+            while(!foundValidChroma) {
+                LumaData tempData = new LumaData(random(this.minL,this.maxL), random(this.minC,this.maxC), random(this.minH, this.maxH));
+
+                if (validChroma(tempData.getChroma())) {
+                    lumaDomain_.add(tempData);
+                    foundValidChroma = true;
+                }
+            }
+        }
+        return lumaDomain_;
+    }
+
+    private ArrayList<LumaCentroid> createClusters(int lumaClusterCount_) {
+
+        ArrayList<LumaCentroid> lumaClusters_ = new ArrayList<LumaCentroid>();
+
+        for (int i = 0; i < lumaClusterCount_; i++) {
+            boolean foundValidCentroid = false;
+            // Try until the centroid is a valid RGB color and within the range. See validChroma method for the checking routine.
+
+            while(!foundValidCentroid) {
+
+                LumaCentroid tempCentroid = new LumaCentroid(random(this.minL,this.maxL), random(this.minC,this.maxC), random(this.minH, this.maxH));
+
+                if (validChroma(tempCentroid.getChroma())) {
+
+                    lumaClusters_.add(tempCentroid);
+                    foundValidCentroid = true;
+                }
+            }
+        }
+        return lumaClusters_;
+    }
+
+    /*  ---- DEPRECATED -----------------------------------------------------------------
     private ArrayList<LumaData> createDomain(float minL_, float maxL_, float minC_, float maxC_, float minH_, float maxH_) {
 
         ArrayList<LumaData> lumaDomain_ = new ArrayList<LumaData>();
@@ -347,68 +381,23 @@ public class Luma {
 
         return lumaDomain_;
     }
+    */
 
-    private ArrayList<LumaData> createConstantDomain(int size_, float minL_, float maxL_, float minC_, float maxC_, float minH_, float maxH_) {
-
-        ArrayList<LumaData> lumaDomain_ = new ArrayList<LumaData>();
-
-        for (int i = 0; i < size_; i++) {
-
-            boolean foundValidChroma = false;
-
-            // Try until the centroid is not clipped
-            while(!foundValidChroma) {
-                LumaData tempData = new LumaData(random(this.minL,this.maxL), random(this.minC,this.maxC), random(this.minH, this.maxH));
-
-                if (validChroma(tempData.getChroma())) {
-                    lumaDomain_.add(tempData);
-                    foundValidChroma = true;
-                    // println("[Building " + lumaClusters_.size() + "]\t" + tempData);
-                }
-            }
-        }
-        return lumaDomain_;
+    // MATH & UTILITY METHODS ---- //////////////////////////////////////////////////////
+    // Check if all array items are true
+    private boolean checkTruth(boolean[] array_) {
+        for (boolean i: array_) if(!i) return false;
+            return true;
     }
 
-
-    private ArrayList<LumaCentroid> createClusters(int lumaClusterCount_) {
-
-        ArrayList<LumaCentroid> lumaClusters_ = new ArrayList<LumaCentroid>();
-
-        for (int i = 0; i < lumaClusterCount_; i++) {
-
-            boolean foundValidCentroid = false;
-
-            // Try until the centroid is not clipped
-            while(!foundValidCentroid) {
-                LumaCentroid tempCentroid = new LumaCentroid(random(this.minL,this.maxL), random(this.minC,this.maxC), random(this.minH, this.maxH));
-
-                if (validChroma(tempCentroid.getChroma())) {
-
-                    lumaClusters_.add(tempCentroid);
-                    foundValidCentroid = true;
-                    println("[Building " + lumaClusters_.size() + "]\t" + tempCentroid);
-
-
-                }
-            }
-        }
-        println("---------------------------------------------------------------------------------------------------------------");
-        return lumaClusters_;
-    }
-
-
-    // MATH & UTILITY METHODS
-
-
+    // Check if the data point is a valid RGB color
     private boolean validChroma(Chroma chromaColor_) {
-
         return !chromaColor_.clipped() && validRange(chromaColor_);
 
     }
 
+    // Check if the data point has moved out of the input range.
     private boolean validRange(Chroma chromaColor_) {
-
         return (chromaColor_.getLum() > this.minL)
             && (chromaColor_.getLum() < this.maxL)
             && (chromaColor_.getChr() > this.minC)
@@ -418,22 +407,17 @@ public class Luma {
     }
 
 
-    private float computeDistance(LumaCentroid centroid1_, LumaCentroid centroid2_) {
-        return (float)Math.sqrt(    Math.pow(centroid1_.getChroma().getLum() - centroid2_.getChroma().getLum(), 2) +
-                                    Math.pow(centroid1_.getChroma().getChr() - centroid2_.getChroma().getChr(), 2) +
-                                    Math.pow(centroid1_.getChroma().getHue() - centroid2_.getChroma().getHue(), 2));
-
-    }
-
-
     private boolean checkConvergence(LumaCentroid currentCentroid_, LumaCentroid prevCentroid_) {
         return computeDistance(currentCentroid_, prevCentroid_) < this.convergenceQuality;
     }
 
+    // Euclidean distance in 3D
+    private float computeDistance(LumaCentroid point1_, LumaCentroid point2_) {
+        return (float)Math.sqrt(
+            Math.pow(point1_.getChroma().getLum() - point2_.getChroma().getLum(), 2) +
+            Math.pow(point1_.getChroma().getChr() - point2_.getChroma().getChr(), 2) +
+            Math.pow(point1_.getChroma().getHue() - point2_.getChroma().getHue(), 2));
 
-    private boolean checkTrue(boolean[] testArray_) {
-        for (boolean b: testArray_) if(!b) return false;
-            return true;
     }
 
 }

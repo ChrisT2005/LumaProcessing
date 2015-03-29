@@ -1,3 +1,5 @@
+import com.chroma.*;
+
 Luma testLuma;
 Chroma[] lumaClusters;
 Chroma[] lumaDomain;
@@ -7,13 +9,13 @@ int endTime;
 int totalTime;
 
 int lumaNumber = 10;
-int lumaQuality = 100;
+int lumaQuality = 50;
 
 int lumaMinL = 40;
-int lumaMaxL = 60;
+int lumaMaxL = 50;
 
-int lumaMinC = 40;
-int lumaMaxC = 128;
+int lumaMinC = 30;
+int lumaMaxC = 70;
 
 int lumaMinH = 0;
 int lumaMaxH = 360;
